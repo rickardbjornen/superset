@@ -77,6 +77,7 @@ from superset.dashboards.schemas import (
     GetFavStarIdsSchema,
     openapi_spec_methods_override,
     thumbnail_query_schema,
+    screenshot_query_schema,
 )
 from superset.extensions import event_logger
 from superset.models.dashboard import Dashboard
@@ -84,7 +85,7 @@ from superset.models.embedded_dashboard import EmbeddedDashboard
 from superset.tasks.thumbnails import cache_dashboard_thumbnail
 from superset.tasks.utils import get_current_user
 from superset.utils.cache import etag_cache
-from superset.utils.screenshots import DashboardScreenshot
+from superset.utils.screenshots import DashboardScreenshot, DEFAULT_DASHBOARD_WINDOW_SIZE
 from superset.utils.urls import get_url_path
 from superset.views.base import generate_download_headers
 from superset.views.base_api import (
@@ -147,6 +148,8 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         "set_embedded",
         "delete_embedded",
         "thumbnail",
+        "screenshot",
+        "cache_screenshot",
         "copy_dash",
     }
     resource_name = "dashboard"
@@ -278,6 +281,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         "get_export_ids_schema": get_export_ids_schema,
         "thumbnail_query_schema": thumbnail_query_schema,
         "get_fav_star_ids_schema": get_fav_star_ids_schema,
+        "screenshot_query_schema": screenshot_query_schema,
     }
     openapi_spec_methods = openapi_spec_methods_override
     """ Overrides GET methods OpenApi descriptions """
@@ -831,35 +835,28 @@ class DashboardRestApi(BaseSupersetModelRestApi):
 
     @expose("/<pk>/thumbnail/<digest>/", methods=("GET",))
     @protect()
-    @safe
     @rison(thumbnail_query_schema)
+    @safe
+    @statsd_metrics
     @event_logger.log_this_with_context(
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.thumbnail",
         log_to_statsd=False,
     )
     def thumbnail(self, pk: int, digest: str, **kwargs: Any) -> WerkzeugResponse:
-        """Compute async or get already computed dashboard thumbnail from cache.
+        """Compute or get already computed dashboard thumbnail from cache.
         ---
         get:
-          summary: Get dashboard's thumbnail
-          description: >-
-            Computes async or get already computed dashboard thumbnail from cache.
+          summary: Get dashboard thumbnail
+          description: Compute or get already computed dashboard thumbnail from cache.
           parameters:
           - in: path
             schema:
               type: integer
             name: pk
           - in: path
-            name: digest
-            description: A hex digest that makes this dashboard unique
             schema:
               type: string
-          - in: query
-            name: q
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/thumbnail_query_schema'
+            name: digest
           responses:
             200:
               description: Dashboard thumbnail image
@@ -868,23 +865,14 @@ class DashboardRestApi(BaseSupersetModelRestApi):
                  schema:
                    type: string
                    format: binary
-            202:
-              description: Thumbnail does not exist on cache, fired async to compute
-              content:
-                application/json:
-                  schema:
-                    type: object
-                    properties:
-                      message:
-                        type: string
             302:
               description: Redirects to the current digest
+            400:
+              $ref: '#/components/responses/400'
             401:
               $ref: '#/components/responses/401'
             404:
               $ref: '#/components/responses/404'
-            422:
-              $ref: '#/components/responses/422'
             500:
               $ref: '#/components/responses/500'
         """
@@ -892,12 +880,13 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         if not dashboard:
             return self.response_404()
 
-        dashboard_url = get_url_path(
-            "Superset.dashboard", dashboard_id_or_slug=dashboard.id
-        )
-        # If force, request a screenshot from the workers
         current_user = get_current_user()
+        url = get_url_path("Superset.dashboard", dashboard_id_or_slug=dashboard.id)
         if kwargs["rison"].get("force", False):
+            logger.info(
+                "Triggering thumbnail compute (dashboard id: %s) ASYNC",
+                str(dashboard.id)
+            )
             cache_dashboard_thumbnail.delay(
                 current_user=current_user,
                 dashboard_id=dashboard.id,
@@ -905,12 +894,16 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             )
             return self.response(202, message="OK Async")
         # fetch the dashboard screenshot using the current user and cache if set
-        screenshot = DashboardScreenshot(
-            dashboard_url, dashboard.digest
-        ).get_from_cache(cache=thumbnail_cache)
-        # If the screenshot does not exist, request one from the workers
+        screenshot = DashboardScreenshot(url, dashboard.digest).get_from_cache(
+            cache=thumbnail_cache
+        )
+        # If not screenshot then send request to compute thumb to celery
         if not screenshot:
             self.incr_stats("async", self.thumbnail.__name__)
+            logger.info(
+                "Triggering thumbnail compute (dashboard id: %s) ASYNC",
+                str(dashboard.id)
+            )
             cache_dashboard_thumbnail.delay(
                 current_user=current_user,
                 dashboard_id=dashboard.id,
@@ -922,9 +915,8 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             self.incr_stats("redirect", self.thumbnail.__name__)
             return redirect(
                 url_for(
-                    f"{self.__class__.__name__}.thumbnail",
-                    pk=pk,
-                    digest=dashboard.digest,
+                    f"{self.__class__.__name__}.thumbnail", pk=pk,
+                    digest=dashboard.digest
                 )
             )
         self.incr_stats("from_cache", self.thumbnail.__name__)
@@ -1422,3 +1414,132 @@ class DashboardRestApi(BaseSupersetModelRestApi):
                 ).timestamp(),
             },
         )
+
+
+    @expose("/<pk>/cache_screenshot/", methods=("GET",))
+    @protect()
+    @rison(screenshot_query_schema)
+    @safe
+    @statsd_metrics
+    @event_logger.log_this_with_context(
+        action=lambda self, *args, **kwargs: f"{self.__class__.__name__}"
+        f".cache_screenshot",
+        log_to_statsd=False,
+    )
+    def cache_screenshot(self, pk: int, **kwargs: Any) -> WerkzeugResponse:
+        """Compute and cache a screenshot.
+        ---
+        get:
+          summary: Compute and cache a screenshot
+          parameters:
+          - in: path
+            schema:
+              type: integer
+            name: pk
+          - in: query
+            name: q
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/screenshot_query_schema'
+          responses:
+            202:
+              description: Dashboard async result
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/DashboardCacheScreenshotResponseSchema"
+            400:
+              $ref: '#/components/responses/400'
+            401:
+              $ref: '#/components/responses/401'
+            404:
+              $ref: '#/components/responses/404'
+            500:
+              $ref: '#/components/responses/500'
+        """
+        rison_dict = kwargs["rison"]
+        window_size = rison_dict.get("window_size") or DEFAULT_DASHBOARD_WINDOW_SIZE
+
+        # Don't shrink the image if thumb_size is not specified
+        thumb_size = rison_dict.get("thumb_size") or window_size
+
+        dashboard = cast(Dashboard, self.datamodel.get(pk, self._base_filters))
+        if not dashboard:
+            return self.response_404()
+
+        dashboard_url = get_url_path("Superset.dashboard", dashboard_id_or_slug=dashboard.id)
+        screenshot_obj = DashboardScreenshot(dashboard_url, dashboard.digest)
+        cache_key = screenshot_obj.cache_key(window_size, thumb_size)
+        image_url = get_url_path(
+            "DashboardRestApi.screenshot", pk=dashboard.id, digest=cache_key
+        )
+
+        def trigger_celery() -> WerkzeugResponse:
+            logger.info("Triggering screenshot ASYNC")
+            cache_dashboard_thumbnail.delay(
+                current_user=get_current_user(),
+                dashboard_id=dashboard.id,
+                force=True,
+                # window_size=window_size,
+                thumb_size=thumb_size,
+            )
+            return self.response(
+                202, cache_key=cache_key, dashboard_url=dashboard_url, image_url=image_url
+            )
+
+        return trigger_celery()
+
+    @expose("/<pk>/screenshot/<digest>/", methods=("GET",))
+    @protect()
+    @safe
+    @statsd_metrics
+    @event_logger.log_this_with_context(
+        action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.screenshot",
+        log_to_statsd=False,
+    )
+    def screenshot(self, pk: int, digest: str) -> WerkzeugResponse:
+        """Get a computed screenshot from cache.
+        ---
+        get:
+          summary: Get a computed screenshot from cache
+          parameters:
+          - in: path
+            schema:
+              type: integer
+            name: pk
+          - in: path
+            schema:
+              type: string
+            name: digest
+          responses:
+            200:
+              description: Dashboard thumbnail image
+              content:
+               image/*:
+                 schema:
+                   type: string
+                   format: binary
+            400:
+              $ref: '#/components/responses/400'
+            401:
+              $ref: '#/components/responses/401'
+            404:
+              $ref: '#/components/responses/404'
+            500:
+              $ref: '#/components/responses/500'
+        """
+        dashboard = self.datamodel.get(pk, self._base_filters)
+
+        # Making sure the dashboard still exists
+        if not dashboard:
+            return self.response_404()
+
+        # fetch the dashboard screenshot using the current user and cache if set
+        if img := DashboardScreenshot.get_from_cache_key(thumbnail_cache, digest):
+            return Response(
+                FileWrapper(img), mimetype="image/png", direct_passthrough=True
+            )
+        # TODO: return an empty image
+        return self.response_404()
+

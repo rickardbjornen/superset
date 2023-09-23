@@ -25,6 +25,18 @@ from superset.exceptions import SupersetException
 from superset.tags.models import TagTypes
 from superset.utils import core as utils
 
+width_height_schema = {
+    "type": "array",
+    "items": {"type": "integer"},
+}
+screenshot_query_schema = {
+    "type": "object",
+    "properties": {
+        "force": {"type": "boolean"},
+        # "window_size": width_height_schema,
+        "thumb_size": width_height_schema,
+    },
+}
 get_delete_ids_schema = {"type": "array", "items": {"type": "integer"}}
 get_export_ids_schema = {"type": "array", "items": {"type": "integer"}}
 get_fav_star_ids_schema = {"type": "array", "items": {"type": "integer"}}
