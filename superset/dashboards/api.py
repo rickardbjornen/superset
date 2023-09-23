@@ -1478,7 +1478,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
                 new_pdf = BytesIO()
                 img2.save(new_pdf, "PDF", save_all=True)
                 new_pdf.seek(0)
-                headers = Headers([('Content-Type', 'application/pdf'),('Content-Disposition', 'attachment; filename=labels.pdf')])
+                headers = Headers([('Content-Type', 'application/pdf'),('Content-Disposition', 'attachment; filename=report.pdf')])
                 return Response(
                     FileWrapper(new_pdf), status=202, mimetype="application/pdf", direct_passthrough=True, headers=headers
                 )
