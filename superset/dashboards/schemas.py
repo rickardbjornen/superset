@@ -33,7 +33,7 @@ screenshot_query_schema = {
     "type": "object",
     "properties": {
         "force": {"type": "boolean"},
-        # "window_size": width_height_schema,
+        "window_size": width_height_schema,
         "thumb_size": width_height_schema,
     },
 }
@@ -44,6 +44,11 @@ thumbnail_query_schema = {
     "type": "object",
     "properties": {"force": {"type": "boolean"}},
 }
+screenshot_output_schema = {
+    "type": "object",
+    "properties": {"isPdf": {"type": "boolean"}},
+}
+
 
 dashboard_title_description = "A title for the dashboard."
 slug_description = "Unique identifying part for the web address of the dashboard."
