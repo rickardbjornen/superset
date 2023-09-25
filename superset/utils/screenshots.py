@@ -30,6 +30,7 @@ from superset.utils.webdriver import (
     WebDriverProxy,
     WindowSize,
 )
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class BaseScreenshot:
         self,
         window_size: bool | WindowSize | None = None,
         thumb_size: bool | WindowSize | None = None,
+        is_random_cache_key: bool = False,
     ) -> str:
         window_size = window_size or self.window_size
         thumb_size = thumb_size or self.thumb_size
@@ -79,7 +81,7 @@ class BaseScreenshot:
             "window_size": window_size,
             "thumb_size": thumb_size,
         }
-        return md5_sha_from_dict(args)
+        return uuid.uuid4().hex if is_random_cache_key else md5_sha_from_dict(args)
 
     def get_screenshot(
         self, user: User, window_size: WindowSize | None = None
@@ -141,6 +143,7 @@ class BaseScreenshot:
         thumb_size: WindowSize | None = None,
         cache: Cache = None,
         force: bool = True,
+        cache_key: str = '',
     ) -> bytes | None:
         """
         Fetches the screenshot, computes the thumbnail and caches the result
@@ -150,9 +153,11 @@ class BaseScreenshot:
         :param window_size: The window size from which will process the thumb
         :param thumb_size: The final thumbnail size
         :param force: Will force the computation even if it's already cached
+        :param cache_key: Use provided cache_key
         :return: Image payload
         """
-        cache_key = self.cache_key(window_size, thumb_size)
+        if cache_key == '':
+            cache_key = self.cache_key(window_size, thumb_size)
         window_size = window_size or self.window_size
         thumb_size = thumb_size or self.thumb_size
         if not force and cache and cache.get(cache_key):

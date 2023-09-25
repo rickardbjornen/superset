@@ -49,7 +49,8 @@ dashboard_screenshot_query_schema = {
         "force": {"type": "boolean"},
         "window_size": width_height_schema,
         "thumb_size": width_height_schema,
-        "filters": filters_schema
+        "filters": filters_schema,
+        "is_random_cache_key": {"type": "boolean"},
     },
 }
 get_delete_ids_schema = {"type": "array", "items": {"type": "integer"}}
