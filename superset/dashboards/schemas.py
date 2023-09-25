@@ -61,7 +61,10 @@ thumbnail_query_schema = {
 }
 screenshot_output_schema = {
     "type": "object",
-    "properties": {"isPdf": {"type": "boolean"}},
+    "properties": {
+        "is_pdf": {"type": "boolean"},
+        "delete_catch": {"type": "boolean"}
+    }
 }
 
 

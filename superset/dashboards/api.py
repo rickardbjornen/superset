@@ -1463,7 +1463,8 @@ class DashboardRestApi(BaseSupersetModelRestApi):
               $ref: '#/components/responses/500'
         """
         rison_dict = kwargs["rison"]
-        isPdf = rison_dict.get("isPdf", False)
+        is_pdf = rison_dict.get("is_pdf", False)
+        delete_catch = rison_dict.get("delete_catch", False)
 
         dashboard = self.datamodel.get(pk, self._base_filters)
 
@@ -1472,10 +1473,10 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             return self.response_404()
 
         # fetch the dashboard screenshot using the current user and cache if set
-        if img := DashboardScreenshot.get_from_cache_key(thumbnail_cache, digest):
+        if img := DashboardScreenshot.get_from_cache_key(cache=thumbnail_cache, cache_key=digest, delete_catch=delete_catch):
 
             # Converting to pdf if required
-            if isPdf:
+            if is_pdf:
                 img2 = Image.open(img)
                 if img2.mode == "RGBA":
                     img2 = img2.convert("RGB")
