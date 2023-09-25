@@ -1477,12 +1477,12 @@ class DashboardRestApi(BaseSupersetModelRestApi):
 
             # Converting to pdf if required
             if is_pdf:
-                img2 = Image.open(img)
-                if img2.mode == "RGBA":
-                    img2 = img2.convert("RGB")
+                img = Image.open(img)
+                if img.mode == "RGBA":
+                    img = img.convert("RGB")
 
                 new_pdf = BytesIO()
-                img2.save(new_pdf, "PDF", save_all=True)
+                img.save(new_pdf, "PDF", save_all=True)
                 new_pdf.seek(0)
                 headers = Headers([('Content-Type', 'application/pdf'),('Content-Disposition', 'attachment; filename=report.pdf')])
                 return Response(
@@ -1494,7 +1494,6 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             )
         # TODO: return an empty image
         return self.response_404()
-
 
     @expose("/<pk>/thumbnail/<digest>/", methods=("GET",))
     @protect()
