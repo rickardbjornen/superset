@@ -60,6 +60,9 @@ def convert_to_native_url_parameters(filters: list[dict[str, str, str]]):
         filter_id = ftr.get('filter_id')
         filter_value = ftr.get('filter_value')
         filter_column = ftr.get('filter_column')
-        filters_string.append(f"NATIVE_FILTER-{filter_id}:(__cache:(label:'{filter_value}',validateStatus:!f,value:!('{filter_value}')),extraFormData:(filters:!((col:{filter_column},op:IN,val:!('{filter_value}')))),filterState:(label:'{filter_value}',validateStatus:!f,value:!('{filter_value}')),id:NATIVE_FILTER-{filter_id},ownState:())")
+        if filter_column == 'time_range':
+            filters_string.append(f"NATIVE_FILTER-{filter_id}:(id:NATIVE_FILTER-{filter_id},extraFormData:({filter_column}:'{filter_value}'),filterState:(value:'{filter_value}'),ownState:())")
+        else:
+            filters_string.append(f"NATIVE_FILTER-{filter_id}:(__cache:(label:'{filter_value}',validateStatus:!f,value:!('{filter_value}')),extraFormData:(filters:!((col:{filter_column},op:IN,val:!('{filter_value}')))),filterState:(label:'{filter_value}',validateStatus:!f,value:!('{filter_value}')),id:NATIVE_FILTER-{filter_id},ownState:())")
 
     return f"({','.join(filters_string)})"
