@@ -78,7 +78,7 @@ from superset.dashboards.schemas import (
     get_fav_star_ids_schema,
     GetFavStarIdsSchema,
     openapi_spec_methods_override,
-    thumbnail_query_schema,
+    dashboard_thumbnail_query_schema,
     dashboard_screenshot_query_schema,
     screenshot_output_schema,
 )
@@ -282,7 +282,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
     apispec_parameter_schemas = {
         "get_delete_ids_schema": get_delete_ids_schema,
         "get_export_ids_schema": get_export_ids_schema,
-        "thumbnail_query_schema": thumbnail_query_schema,
+        "dashboard_thumbnail_query_schema": dashboard_thumbnail_query_schema,
         "get_fav_star_ids_schema": get_fav_star_ids_schema,
         "dashboard_screenshot_query_schema": dashboard_screenshot_query_schema,
         "screenshot_output_schema": screenshot_output_schema,
@@ -1498,7 +1498,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
 
     @expose("/<pk>/thumbnail/<digest>/", methods=("GET",))
     @protect()
-    @rison(thumbnail_query_schema)
+    @rison(dashboard_thumbnail_query_schema)
     @safe
     @statsd_metrics
     @event_logger.log_this_with_context(
