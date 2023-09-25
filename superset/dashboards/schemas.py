@@ -43,7 +43,7 @@ filters_schema = {
     "items": filter_type_schema
 }
 
-screenshot_query_schema = {
+dashboard_screenshot_query_schema = {
     "type": "object",
     "properties": {
         "force": {"type": "boolean"},

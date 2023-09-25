@@ -79,7 +79,7 @@ from superset.dashboards.schemas import (
     GetFavStarIdsSchema,
     openapi_spec_methods_override,
     thumbnail_query_schema,
-    screenshot_query_schema,
+    dashboard_screenshot_query_schema,
     screenshot_output_schema,
 )
 from superset.extensions import event_logger
@@ -284,7 +284,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         "get_export_ids_schema": get_export_ids_schema,
         "thumbnail_query_schema": thumbnail_query_schema,
         "get_fav_star_ids_schema": get_fav_star_ids_schema,
-        "screenshot_query_schema": screenshot_query_schema,
+        "dashboard_screenshot_query_schema": dashboard_screenshot_query_schema,
         "screenshot_output_schema": screenshot_output_schema,
     }
     openapi_spec_methods = openapi_spec_methods_override
@@ -1332,7 +1332,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
 
     @expose("/<pk>/cache_screenshot/", methods=("GET",))
     @protect()
-    @rison(screenshot_query_schema)
+    @rison(dashboard_screenshot_query_schema)
     @safe
     @statsd_metrics
     @event_logger.log_this_with_context(
@@ -1355,7 +1355,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             content:
               application/json:
                 schema:
-                  $ref: '#/components/schemas/screenshot_query_schema'
+                  $ref: '#/components/schemas/dashboard_screenshot_query_schema'
           responses:
             202:
               description: Dashboard async result
