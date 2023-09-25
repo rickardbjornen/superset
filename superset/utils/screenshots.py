@@ -236,12 +236,14 @@ class DashboardScreenshot(BaseScreenshot):
         digest: str,
         window_size: WindowSize | None = None,
         thumb_size: WindowSize | None = None,
+        native_filters: str = '',
     ):
         # per the element above, dashboard screenshots
         # should always capture in standalone
         url = modify_url_query(
             url,
             standalone=DashboardStandaloneMode.REPORT.value,
+            native_filters=native_filters,
         )
 
         super().__init__(url, digest)

@@ -89,7 +89,7 @@ from superset.tasks.thumbnails import cache_dashboard_thumbnail
 from superset.tasks.utils import get_current_user
 from superset.utils.cache import etag_cache
 from superset.utils.screenshots import DashboardScreenshot, DEFAULT_DASHBOARD_WINDOW_SIZE
-from superset.utils.urls import get_url_path
+from superset.utils.urls import get_url_path, convert_to_native_url_parameters, modify_url_query
 from superset.views.base import generate_download_headers
 from superset.views.base_api import (
     BaseSupersetModelRestApi,
@@ -1374,6 +1374,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         """
         rison_dict = kwargs["rison"]
         window_size = rison_dict.get("window_size") or DEFAULT_DASHBOARD_WINDOW_SIZE
+        native_filters = convert_to_native_url_parameters(rison_dict.get("filters", []))
 
         # Don't shrink the image if thumb_size is not specified
         thumb_size = rison_dict.get("thumb_size") or window_size
@@ -1383,7 +1384,10 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             return self.response_404()
 
         dashboard_url = get_url_path("Superset.dashboard", dashboard_id_or_slug=dashboard.id)
-        screenshot_obj = DashboardScreenshot(dashboard_url, dashboard.digest)
+        screenshot_obj = DashboardScreenshot(url=dashboard_url, digest=dashboard.digest, native_filters=native_filters)
+        # screenshot_obj.url = modify_url_query(screenshot_obj.url, native_filters=filters)
+        # logger.info(screenshot_obj.url)
+
         cache_key = screenshot_obj.cache_key(window_size=window_size, thumb_size=thumb_size)
         image_url = get_url_path(
             "DashboardRestApi.screenshot", pk=dashboard.id, digest=cache_key
@@ -1397,6 +1401,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
                 force=True,
                 window_size=window_size,
                 thumb_size=thumb_size,
+                native_filters=native_filters,
             )
             return self.response(
                 202, cache_key=cache_key, dashboard_url=dashboard_url, image_url=image_url
@@ -1551,7 +1556,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             )
             return self.response(202, message="OK Async")
         # fetch the dashboard screenshot using the current user and cache if set
-        screenshot = DashboardScreenshot(url, dashboard.digest).get_from_cache(
+        screenshot = DashboardScreenshot(url=url, digest=dashboard.digest).get_from_cache(
             cache=thumbnail_cache
         )
         # If not screenshot then send request to compute thumb to celery

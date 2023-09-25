@@ -29,12 +29,27 @@ width_height_schema = {
     "type": "array",
     "items": {"type": "integer"},
 }
+
+filter_type_schema = {
+    "type": "object",
+    "properties": {
+        "filter_id": {"type": "string"},
+        "filter_value": {"type": "string"},
+        "filter_column": {"type": "string"}
+    }
+}
+filters_schema = {
+    "type": "array",
+    "items": filter_type_schema
+}
+
 screenshot_query_schema = {
     "type": "object",
     "properties": {
         "force": {"type": "boolean"},
         "window_size": width_height_schema,
         "thumb_size": width_height_schema,
+        "filters": filters_schema
     },
 }
 get_delete_ids_schema = {"type": "array", "items": {"type": "integer"}}

@@ -78,6 +78,7 @@ def cache_dashboard_thumbnail(
     force: bool = False,
     window_size: Optional[WindowSize] = None,
     thumb_size: Optional[WindowSize] = None,
+    native_filters: str = '',
 ) -> None:
     # pylint: disable=import-outside-toplevel
     from superset.models.dashboard import Dashboard
@@ -96,7 +97,7 @@ def cache_dashboard_thumbnail(
     )
     user = security_manager.find_user(username)
     with override_user(user):
-        screenshot = DashboardScreenshot(url, dashboard.digest)
+        screenshot = DashboardScreenshot(url=url, digest=dashboard.digest, native_filters=native_filters)
         screenshot.compute_and_cache(
             user=user,
             cache=thumbnail_cache,
