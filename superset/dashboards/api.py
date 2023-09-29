@@ -1376,6 +1376,8 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         window_size = rison_dict.get("window_size") or DEFAULT_DASHBOARD_WINDOW_SIZE
         native_filters = convert_to_native_url_parameters(rison_dict.get("filters", []))
         is_random_cache_key = rison_dict.get("is_random_cache_key", False)
+        callback_url = rison_dict.get("callback", {}).get("callback_url")
+        callback_body = rison_dict.get("callback", {}).get("callback_body")
 
         # Don't shrink the image if thumb_size is not specified
         thumb_size = rison_dict.get("thumb_size") or window_size
@@ -1402,6 +1404,8 @@ class DashboardRestApi(BaseSupersetModelRestApi):
                 thumb_size=thumb_size,
                 native_filters=native_filters,
                 cache_key=cache_key,
+                callback_url=callback_url,
+                callback_body=callback_body,
             )
             return self.response(
                 202, cache_key=cache_key, dashboard_url=dashboard_url, image_url=image_url

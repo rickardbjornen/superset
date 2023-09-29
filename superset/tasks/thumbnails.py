@@ -80,6 +80,8 @@ def cache_dashboard_thumbnail(
     thumb_size: Optional[WindowSize] = None,
     native_filters: str = '',
     cache_key: str = '',
+    callback_url: str = None,
+    callback_body: str = None,
 ) -> None:
     # pylint: disable=import-outside-toplevel
     from superset.models.dashboard import Dashboard
@@ -106,4 +108,6 @@ def cache_dashboard_thumbnail(
             window_size=window_size,
             thumb_size=thumb_size,
             cache_key=cache_key,
+            callback_url=callback_url,
+            callback_body=callback_body
         )

@@ -38,6 +38,15 @@ filter_type_schema = {
         "filter_column": {"type": "string"}
     }
 }
+
+callback_type_schema = {
+    "type": "object",
+    "properties": {
+        "callback_url": {"type": "string"},
+        "callback_body": {"type": "string"}
+    }
+}
+
 filters_schema = {
     "type": "array",
     "items": filter_type_schema
@@ -51,6 +60,7 @@ dashboard_screenshot_query_schema = {
         "thumb_size": width_height_schema,
         "filters": filters_schema,
         "is_random_cache_key": {"type": "boolean"},
+        "callback": callback_type_schema
     },
 }
 get_delete_ids_schema = {"type": "array", "items": {"type": "integer"}}

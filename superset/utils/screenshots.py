@@ -16,10 +16,11 @@
 # under the License.
 from __future__ import annotations
 
+import json
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING
-
+import requests
 from flask import current_app
 
 from superset.utils.hashing import md5_sha_from_dict
@@ -144,6 +145,8 @@ class BaseScreenshot:
         cache: Cache = None,
         force: bool = True,
         cache_key: str = '',
+        callback_url: str | None = None,
+        callback_body: str | None = None,
     ) -> bytes | None:
         """
         Fetches the screenshot, computes the thumbnail and caches the result
@@ -154,6 +157,8 @@ class BaseScreenshot:
         :param thumb_size: The final thumbnail size
         :param force: Will force the computation even if it's already cached
         :param cache_key: Use provided cache_key
+        :param callback_url: Urls to make a callback after finish
+        :param callback_body: Body of callback after finish
         :return: Image payload
         """
         if cache_key == '':
@@ -184,6 +189,19 @@ class BaseScreenshot:
             logger.info("Caching thumbnail: %s", cache_key)
             cache.set(cache_key, payload)
             logger.info("Done caching thumbnail")
+
+            # Try to do a callback
+            if callback_url:
+                try:
+                    if callback_body:
+                        callback_body = json.loads(callback_body.replace('<cache_key>', cache_key))
+                    else:
+                        callback_body = {'Text': cache_key}
+                    callback_answer = requests.post(url=callback_url, json=callback_body)
+                    logger.info(f"Done callback with status {callback_answer.status_code} and text {callback_answer.text}")
+                except Exception as ex:  # pylint: disable=broad-except
+                    logger.warning("Failed at making callback %s", ex, exc_info=True)
+
         return payload
 
     @classmethod
@@ -244,6 +262,8 @@ class DashboardScreenshot(BaseScreenshot):
         window_size: WindowSize | None = None,
         thumb_size: WindowSize | None = None,
         native_filters: str = '',
+        callback_url: str | None = None,
+        callback_body: str | None = None,
     ):
         # per the element above, dashboard screenshots
         # should always capture in standalone
