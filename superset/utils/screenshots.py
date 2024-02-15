@@ -16,10 +16,11 @@
 # under the License.
 from __future__ import annotations
 
+import json
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING
-
+import requests
 from flask import current_app
 
 from superset.utils.hashing import md5_sha_from_dict
@@ -30,6 +31,7 @@ from superset.utils.webdriver import (
     WebDriverProxy,
     WindowSize,
 )
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,7 @@ class BaseScreenshot:
         self,
         window_size: bool | WindowSize | None = None,
         thumb_size: bool | WindowSize | None = None,
+        is_random_cache_key: bool = False,
     ) -> str:
         window_size = window_size or self.window_size
         thumb_size = thumb_size or self.thumb_size
@@ -79,7 +82,7 @@ class BaseScreenshot:
             "window_size": window_size,
             "thumb_size": thumb_size,
         }
-        return md5_sha_from_dict(args)
+        return uuid.uuid4().hex if is_random_cache_key else md5_sha_from_dict(args)
 
     def get_screenshot(
         self, user: User, window_size: WindowSize | None = None
@@ -125,9 +128,11 @@ class BaseScreenshot:
         return self.get_from_cache_key(cache, cache_key)
 
     @staticmethod
-    def get_from_cache_key(cache: Cache, cache_key: str) -> BytesIO | None:
+    def get_from_cache_key(cache: Cache, cache_key: str, delete_catch=False) -> BytesIO | None:
         logger.info("Attempting to get from cache: %s", cache_key)
         if payload := cache.get(cache_key):
+            if delete_catch:
+                cache.delete(cache_key)
             return BytesIO(payload)
         logger.info("Failed at getting from cache: %s", cache_key)
         return None
@@ -139,6 +144,9 @@ class BaseScreenshot:
         thumb_size: WindowSize | None = None,
         cache: Cache = None,
         force: bool = True,
+        cache_key: str = '',
+        callback_url: str | None = None,
+        callback_body: str | None = None,
     ) -> bytes | None:
         """
         Fetches the screenshot, computes the thumbnail and caches the result
@@ -148,9 +156,13 @@ class BaseScreenshot:
         :param window_size: The window size from which will process the thumb
         :param thumb_size: The final thumbnail size
         :param force: Will force the computation even if it's already cached
+        :param cache_key: Use provided cache_key
+        :param callback_url: Urls to make a callback after finish
+        :param callback_body: Body of callback after finish
         :return: Image payload
         """
-        cache_key = self.cache_key(window_size, thumb_size)
+        if cache_key == '':
+            cache_key = self.cache_key(window_size, thumb_size)
         window_size = window_size or self.window_size
         thumb_size = thumb_size or self.thumb_size
         if not force and cache and cache.get(cache_key):
@@ -177,6 +189,19 @@ class BaseScreenshot:
             logger.info("Caching thumbnail: %s", cache_key)
             cache.set(cache_key, payload)
             logger.info("Done caching thumbnail")
+
+            # Try to do a callback
+            if callback_url:
+                try:
+                    if callback_body:
+                        callback_body = json.loads(callback_body.replace('<cache_key>', cache_key))
+                    else:
+                        callback_body = {'Text': cache_key}
+                    callback_answer = requests.post(url=callback_url, json=callback_body)
+                    logger.info(f"Done callback with status {callback_answer.status_code} and text {callback_answer.text}")
+                except Exception as ex:  # pylint: disable=broad-except
+                    logger.warning("Failed at making callback %s", ex, exc_info=True)
+
         return payload
 
     @classmethod
@@ -236,12 +261,16 @@ class DashboardScreenshot(BaseScreenshot):
         digest: str,
         window_size: WindowSize | None = None,
         thumb_size: WindowSize | None = None,
+        native_filters: str = '',
+        callback_url: str | None = None,
+        callback_body: str | None = None,
     ):
         # per the element above, dashboard screenshots
         # should always capture in standalone
         url = modify_url_query(
             url,
             standalone=DashboardStandaloneMode.REPORT.value,
+            native_filters=native_filters,
         )
 
         super().__init__(url, digest)

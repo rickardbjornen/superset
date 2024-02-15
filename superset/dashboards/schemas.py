@@ -25,13 +25,59 @@ from superset.exceptions import SupersetException
 from superset.tags.models import TagTypes
 from superset.utils import core as utils
 
+width_height_schema = {
+    "type": "array",
+    "items": {"type": "integer"},
+}
+
+filter_type_schema = {
+    "type": "object",
+    "properties": {
+        "filter_id": {"type": "string"},
+        "filter_value": {"type": "string"},
+        "filter_column": {"type": "string"}
+    }
+}
+
+callback_type_schema = {
+    "type": "object",
+    "properties": {
+        "callback_url": {"type": "string"},
+        "callback_body": {"type": "string"}
+    }
+}
+
+filters_schema = {
+    "type": "array",
+    "items": filter_type_schema
+}
+
+dashboard_screenshot_query_schema = {
+    "type": "object",
+    "properties": {
+        "force": {"type": "boolean"},
+        "window_size": width_height_schema,
+        "thumb_size": width_height_schema,
+        "filters": filters_schema,
+        "is_random_cache_key": {"type": "boolean"},
+        "callback": callback_type_schema
+    },
+}
 get_delete_ids_schema = {"type": "array", "items": {"type": "integer"}}
 get_export_ids_schema = {"type": "array", "items": {"type": "integer"}}
 get_fav_star_ids_schema = {"type": "array", "items": {"type": "integer"}}
-thumbnail_query_schema = {
+dashboard_thumbnail_query_schema = {
     "type": "object",
     "properties": {"force": {"type": "boolean"}},
 }
+screenshot_output_schema = {
+    "type": "object",
+    "properties": {
+        "is_pdf": {"type": "boolean"},
+        "delete_catch": {"type": "boolean"}
+    }
+}
+
 
 dashboard_title_description = "A title for the dashboard."
 slug_description = "Unique identifying part for the web address of the dashboard."

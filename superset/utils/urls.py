@@ -18,7 +18,7 @@ import urllib
 from typing import Any
 
 from flask import current_app, url_for
-
+from operator import itemgetter
 
 def get_url_host(user_friendly: bool = False) -> str:
     if user_friendly:
@@ -50,3 +50,19 @@ def modify_url_query(url: str, **kwargs: Any) -> str:
         f"{k}={urllib.parse.quote(str(v[0]))}" for k, v in params.items()
     )
     return urllib.parse.urlunsplit(parts)
+
+
+def convert_to_native_url_parameters(filters: list[dict[str, str, str]]):
+    if not filters: return ''
+    filters = sorted(filters, key=itemgetter('filter_id', 'filter_column', 'filter_value'))
+    filters_string = []
+    for ftr in filters:
+        filter_id = ftr.get('filter_id')
+        filter_value = ftr.get('filter_value')
+        filter_column = ftr.get('filter_column')
+        if filter_column == 'time_range':
+            filters_string.append(f"NATIVE_FILTER-{filter_id}:(id:NATIVE_FILTER-{filter_id},extraFormData:({filter_column}:'{filter_value}'),filterState:(value:'{filter_value}'),ownState:())")
+        else:
+            filters_string.append(f"NATIVE_FILTER-{filter_id}:(__cache:(label:'{filter_value}',validateStatus:!f,value:!('{filter_value}')),extraFormData:(filters:!((col:{filter_column},op:IN,val:!('{filter_value}')))),filterState:(label:'{filter_value}',validateStatus:!f,value:!('{filter_value}')),id:NATIVE_FILTER-{filter_id},ownState:())")
+
+    return f"({','.join(filters_string)})"
